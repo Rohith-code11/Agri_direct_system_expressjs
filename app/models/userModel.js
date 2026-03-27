@@ -52,7 +52,20 @@ const createUser = async (userData) => {
   return mapUserRow(rows[0]);
 };
 
+const findUserById = async (id) => {
+  const [rows] = await pool.execute(
+    `SELECT id, name, mobile, email, user_type, county, town_city, postcode, password_hash, created_at, updated_at
+     FROM users
+     WHERE id = ?
+     LIMIT 1`,
+    [id]
+  );
+
+  return mapUserRow(rows[0]);
+};
+
 module.exports = {
   findUserByEmail,
   createUser,
+  findUserById,
 };

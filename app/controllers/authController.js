@@ -35,7 +35,37 @@ const register = async (req, res) => {
       );
     }
 
+    const cleanedName = name.trim();
+    const cleanedMobile = mobile.trim();
+    const cleanedUserType = userType.trim();
+    const cleanedCounty = county.trim();
+    const cleanedTownCity = townCity.trim();
+    const cleanedPostcode = postcode.trim();
     const normalizedEmail = email.toLowerCase().trim();
+
+    // Match SQL column limits in agri_direct.users table.
+    if (cleanedName.length > 120) {
+      return sendError(res, 'Name must be 120 characters or fewer', 400);
+    }
+    if (cleanedMobile.length > 20) {
+      return sendError(res, 'Mobile must be 20 characters or fewer', 400);
+    }
+    if (normalizedEmail.length > 255) {
+      return sendError(res, 'Email must be 255 characters or fewer', 400);
+    }
+    if (!['grower', 'buyer'].includes(cleanedUserType)) {
+      return sendError(res, 'User type must be either grower or buyer', 400);
+    }
+    if (cleanedCounty.length > 120) {
+      return sendError(res, 'County must be 120 characters or fewer', 400);
+    }
+    if (cleanedTownCity.length > 120) {
+      return sendError(res, 'Town/City must be 120 characters or fewer', 400);
+    }
+    if (cleanedPostcode.length > 20) {
+      return sendError(res, 'Postcode must be 20 characters or fewer', 400);
+    }
+
 
     const existingUser = await findUserByEmail(normalizedEmail);
     if (existingUser) {
@@ -44,13 +74,13 @@ const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await createUser({
-      name: name.trim(),
-      mobile: mobile.trim(),
+      name: cleanedName,
+      mobile: cleanedMobile,
       email: normalizedEmail,
-      userType: userType.trim(),
-      county: county.trim(),
-      townCity: townCity.trim(),
-      postcode: postcode.trim(),
+      userType: cleanedUserType,
+      county: cleanedCounty,
+      townCity: cleanedTownCity,
+      postcode: cleanedPostcode,
       password: hashedPassword,
     });
 
