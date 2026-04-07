@@ -1,5 +1,10 @@
 const express = require('express');
-const { getMarketplaceListings, createMarketplaceListing } = require('../controllers/listingController');
+const {
+  getMarketplaceListings,
+  createMarketplaceListing,
+  updateMarketplaceListing,
+  removeMarketplaceListing,
+} = require('../controllers/listingController');
 const { authenticate, authorizeRoles } = require('../middleware/authMiddleware');
 const { uploadListingImages } = require('../../config/multer');
 
@@ -13,5 +18,7 @@ router.post(
   uploadListingImages.array('images', 5),
   createMarketplaceListing
 );
+router.put('/grower/:listingId', authenticate, authorizeRoles('grower'), updateMarketplaceListing);
+router.delete('/grower/:listingId', authenticate, authorizeRoles('grower'), removeMarketplaceListing);
 
 module.exports = router;

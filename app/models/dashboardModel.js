@@ -92,10 +92,15 @@ const getGrowerInventory = async (growerId) => {
     `SELECT
       id,
       title,
+      description,
       unit,
       price_per_unit AS pricePerUnit,
       quantity_available AS quantityAvailable,
+      min_order_qty AS minOrderQty,
       listing_status AS listingStatus,
+      county,
+      town_city AS townCity,
+      postcode,
       available_to AS availableTo,
       updated_at AS updatedAt
      FROM produce_listings
@@ -108,10 +113,15 @@ const getGrowerInventory = async (growerId) => {
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
+    description: row.description,
     unit: row.unit,
     pricePerUnit: Number(row.pricePerUnit || 0),
     quantityAvailable: Number(row.quantityAvailable || 0),
+    minOrderQty: Number(row.minOrderQty || 0),
     listingStatus: row.listingStatus,
+    county: row.county,
+    townCity: row.townCity,
+    postcode: row.postcode,
     availableTo: row.availableTo,
     updatedAt: row.updatedAt,
   }));

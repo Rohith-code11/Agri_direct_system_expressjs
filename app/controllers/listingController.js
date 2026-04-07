@@ -1,5 +1,11 @@
 const { sendSuccess, sendError } = require('../../utils/response');
-const { getListings, getListingFilterOptions, createGrowerListing } = require('../models/listingModel');
+const {
+  getListings,
+  getListingFilterOptions,
+  createGrowerListing,
+  updateGrowerListing,
+  deleteGrowerListing,
+} = require('../models/listingModel');
 const pool = require('../../config/db');
 
 const toNumberOrUndefined = (value) => {
@@ -113,7 +119,80 @@ const createMarketplaceListing = async (req, res) => {
   }
 };
 
+const updateMarketplaceListing = async (req, res) => {
+  try {
+    const {
+      title,
+      description = '',
+      unit = 'kg',
+      pricePerUnit,
+      quantityAvailable,
+      minOrderQty = 1,
+      county,
+      townCity,
+      postcode,
+      listingStatus = 'active',
+    } = req.body;
+
+    if (!title || !pricePerUnit || !quantityAvailable || !county || !townCity || !postcode) {
+      return sendError(
+        res,
+        'title, pricePerUnit, quantityAvailable, county, townCity and postcode are required',
+        400
+      );
+    }
+
+    const isUpdated = await updateGrowerListing(req.user.id, Number(req.params.listingId), {
+      title: String(title).trim(),
+      description: String(description).trim(),
+      unit: String(unit).trim(),
+      pricePerUnit: Number(pricePerUnit),
+      quantityAvailable: Number(quantityAvailable),
+      minOrderQty: Number(minOrderQty) || 1,
+      county: String(county).trim(),
+      townCity: String(townCity).trim(),
+      postcode: String(postcode).trim(),
+      listingStatus: ['active', 'inactive', 'sold_out'].includes(String(listingStatus).trim())
+        ? String(listingStatus).trim()
+        : 'active',
+    });
+
+    if (!isUpdated) {
+      return sendError(res, 'Listing not found', 404);
+    }
+
+    return sendSuccess(res, null, 'Listing updated successfully');
+  } catch (error) {
+    return sendError(
+      res,
+      'Failed to update listing',
+      500,
+      error.sqlMessage || error.message || 'Unknown error'
+    );
+  }
+};
+
+const removeMarketplaceListing = async (req, res) => {
+  try {
+    const isDeleted = await deleteGrowerListing(req.user.id, Number(req.params.listingId));
+    if (!isDeleted) {
+      return sendError(res, 'Listing not found', 404);
+    }
+
+    return sendSuccess(res, null, 'Listing deleted successfully');
+  } catch (error) {
+    return sendError(
+      res,
+      'Failed to delete listing',
+      500,
+      error.sqlMessage || error.message || 'Unknown error'
+    );
+  }
+};
+
 module.exports = {
   getMarketplaceListings,
   createMarketplaceListing,
+  updateMarketplaceListing,
+  removeMarketplaceListing,
 };

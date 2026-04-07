@@ -194,8 +194,58 @@ const createGrowerListing = async (growerId, listingData, files = []) => {
   return listingId;
 };
 
+const updateGrowerListing = async (growerId, listingId, listingData) => {
+  const {
+    title,
+    description,
+    unit,
+    pricePerUnit,
+    quantityAvailable,
+    minOrderQty,
+    county,
+    townCity,
+    postcode,
+    listingStatus,
+  } = listingData;
+
+  const [result] = await pool.execute(
+    `UPDATE produce_listings
+     SET title = ?, description = ?, unit = ?, price_per_unit = ?, quantity_available = ?, min_order_qty = ?,
+         county = ?, town_city = ?, postcode = ?, listing_status = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND grower_id = ?`,
+    [
+      title,
+      description || null,
+      unit,
+      pricePerUnit,
+      quantityAvailable,
+      minOrderQty,
+      county,
+      townCity,
+      postcode,
+      listingStatus,
+      listingId,
+      growerId,
+    ]
+  );
+
+  return result.affectedRows > 0;
+};
+
+const deleteGrowerListing = async (growerId, listingId) => {
+  const [result] = await pool.execute(
+    `DELETE FROM produce_listings
+     WHERE id = ? AND grower_id = ?`,
+    [listingId, growerId]
+  );
+
+  return result.affectedRows > 0;
+};
+
 module.exports = {
   getListings,
   getListingFilterOptions,
   createGrowerListing,
+  updateGrowerListing,
+  deleteGrowerListing,
 };
