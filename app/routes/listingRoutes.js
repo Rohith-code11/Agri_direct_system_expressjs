@@ -18,7 +18,13 @@ router.post(
   uploadListingImages.array('images', 5),
   createMarketplaceListing
 );
-router.put('/grower/:listingId', authenticate, authorizeRoles('grower'), updateMarketplaceListing);
+router.put(
+  '/grower/:listingId',
+  authenticate,
+  authorizeRoles('grower'),
+  uploadListingImages.array('images', 5),
+  updateMarketplaceListing
+);
 router.delete('/grower/:listingId', authenticate, authorizeRoles('grower'), removeMarketplaceListing);
 
 module.exports = router;

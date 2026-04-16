@@ -194,14 +194,83 @@ const createGrowerListing = async (growerId, listingData, files = []) => {
   return listingId;
 };
 
-const updateGrowerListing = async (growerId, listingId, listingData) => {
+const getGrowerListingById = async (growerId, listingId) => {
+  const [rows] = await pool.execute(
+    `SELECT
+      id,
+      category_id AS categoryId,
+      title,
+      description,
+      unit,
+      price_per_unit AS pricePerUnit,
+      quantity_available AS quantityAvailable,
+      min_order_qty AS minOrderQty,
+      is_organic AS isOrganic,
+      harvest_date AS harvestDate,
+      available_from AS availableFrom,
+      available_to AS availableTo,
+      county,
+      town_city AS townCity,
+      postcode,
+      listing_status AS listingStatus
+     FROM produce_listings
+     WHERE id = ? AND grower_id = ?
+     LIMIT 1`,
+    [listingId, growerId]
+  );
+
+  return rows[0] || null;
+};
+
+const insertListingImages = async (listingId, files = []) => {
+  if (files.length === 0) {
+    return;
+  }
+
+  await pool.execute(
+    `UPDATE listing_images
+     SET is_primary = 0
+     WHERE listing_id = ?`,
+    [listingId]
+  );
+
+  const values = [];
+  const placeholders = [];
+
+  files.forEach((file, index) => {
+    placeholders.push('(?, ?, ?, ?, ?, ?, ?)');
+    values.push(
+      listingId,
+      null,
+      `/uploads/listings/${file.filename}`,
+      file.originalname,
+      file.mimetype,
+      file.size,
+      index === 0 ? 1 : 0
+    );
+  });
+
+  await pool.execute(
+    `INSERT INTO listing_images (
+      listing_id, image_url, image_path, file_name, mime_type, file_size, is_primary
+    ) VALUES ${placeholders.join(', ')}`,
+    values
+  );
+};
+
+const updateGrowerListing = async (growerId, listingId, listingData, files = []) => {
   const {
+    categoryId,
     title,
     description,
     unit,
     pricePerUnit,
     quantityAvailable,
     minOrderQty,
+    isOrganic,
+    harvestDate,
+    availableFrom,
+    availableTo,
     county,
     townCity,
     postcode,
@@ -210,16 +279,22 @@ const updateGrowerListing = async (growerId, listingId, listingData) => {
 
   const [result] = await pool.execute(
     `UPDATE produce_listings
-     SET title = ?, description = ?, unit = ?, price_per_unit = ?, quantity_available = ?, min_order_qty = ?,
+     SET category_id = ?, title = ?, description = ?, unit = ?, price_per_unit = ?, quantity_available = ?, min_order_qty = ?,
+         is_organic = ?, harvest_date = ?, available_from = ?, available_to = ?,
          county = ?, town_city = ?, postcode = ?, listing_status = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ? AND grower_id = ?`,
     [
+      categoryId || null,
       title,
       description || null,
       unit,
       pricePerUnit,
       quantityAvailable,
       minOrderQty,
+      isOrganic ? 1 : 0,
+      harvestDate || null,
+      availableFrom || null,
+      availableTo || null,
       county,
       townCity,
       postcode,
@@ -228,6 +303,10 @@ const updateGrowerListing = async (growerId, listingId, listingData) => {
       growerId,
     ]
   );
+
+  if (result.affectedRows > 0 && files.length > 0) {
+    await insertListingImages(listingId, files);
+  }
 
   return result.affectedRows > 0;
 };
@@ -246,6 +325,7 @@ module.exports = {
   getListings,
   getListingFilterOptions,
   createGrowerListing,
+  getGrowerListingById,
   updateGrowerListing,
   deleteGrowerListing,
 };

@@ -90,22 +90,28 @@ const getBuyerSummary = async (buyerId) => {
 const getGrowerInventory = async (growerId) => {
   const [rows] = await pool.execute(
     `SELECT
-      id,
-      title,
-      description,
-      unit,
-      price_per_unit AS pricePerUnit,
-      quantity_available AS quantityAvailable,
-      min_order_qty AS minOrderQty,
-      listing_status AS listingStatus,
-      county,
-      town_city AS townCity,
-      postcode,
-      available_to AS availableTo,
-      updated_at AS updatedAt
-     FROM produce_listings
-     WHERE grower_id = ?
-     ORDER BY updated_at DESC
+      pl.id,
+      pl.title,
+      pl.description,
+      pl.category_id AS categoryId,
+      c.name AS categoryName,
+      pl.unit,
+      pl.price_per_unit AS pricePerUnit,
+      pl.quantity_available AS quantityAvailable,
+      pl.min_order_qty AS minOrderQty,
+      pl.is_organic AS isOrganic,
+      pl.harvest_date AS harvestDate,
+      pl.available_from AS availableFrom,
+      pl.listing_status AS listingStatus,
+      pl.county,
+      pl.town_city AS townCity,
+      pl.postcode,
+      pl.available_to AS availableTo,
+     pl.updated_at AS updatedAt
+     FROM produce_listings pl
+     LEFT JOIN categories c ON c.id = pl.category_id
+     WHERE pl.grower_id = ?
+     ORDER BY pl.updated_at DESC
      LIMIT 50`,
     [growerId]
   );
@@ -114,10 +120,15 @@ const getGrowerInventory = async (growerId) => {
     id: row.id,
     title: row.title,
     description: row.description,
+    categoryId: row.categoryId,
+    categoryName: row.categoryName,
     unit: row.unit,
     pricePerUnit: Number(row.pricePerUnit || 0),
     quantityAvailable: Number(row.quantityAvailable || 0),
     minOrderQty: Number(row.minOrderQty || 0),
+    isOrganic: Boolean(row.isOrganic),
+    harvestDate: row.harvestDate,
+    availableFrom: row.availableFrom,
     listingStatus: row.listingStatus,
     county: row.county,
     townCity: row.townCity,
@@ -127,8 +138,23 @@ const getGrowerInventory = async (growerId) => {
   }));
 };
 
+const getActiveCategories = async () => {
+  const [rows] = await pool.execute(
+    `SELECT id, name
+     FROM categories
+     WHERE is_active = 1
+     ORDER BY name ASC`
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+  }));
+};
+
 module.exports = {
   getGrowerSummary,
   getBuyerSummary,
   getGrowerInventory,
+  getActiveCategories,
 };

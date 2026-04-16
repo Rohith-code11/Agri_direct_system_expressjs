@@ -3,10 +3,33 @@ const {
   getListings,
   getListingFilterOptions,
   createGrowerListing,
+  getGrowerListingById,
   updateGrowerListing,
   deleteGrowerListing,
 } = require('../models/listingModel');
 const pool = require('../../config/db');
+
+const pickDefined = (value, fallback = '') => {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  return String(value).trim();
+};
+
+const pickNumber = (value, fallback) => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  const num = Number(value);
+  return Number.isNaN(num) ? fallback : num;
+};
+
+const pickBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  return value === true || value === 'true' || value === '1' || value === 1;
+};
 
 const toNumberOrUndefined = (value) => {
   if (value === undefined || value === null || value === '') {
@@ -71,7 +94,24 @@ const createMarketplaceListing = async (req, res) => {
       postcode,
     } = req.body;
 
-    if (!title || !pricePerUnit || !quantityAvailable || !county || !townCity || !postcode) {
+    const payload = {
+      categoryId: pickNumber(categoryId, null),
+      title: pickDefined(title),
+      description: pickDefined(description),
+      unit: pickDefined(unit, 'kg') || 'kg',
+      pricePerUnit: pickNumber(pricePerUnit, undefined),
+      quantityAvailable: pickNumber(quantityAvailable, undefined),
+      minOrderQty: pickNumber(minOrderQty, 1),
+      isOrganic: pickBoolean(isOrganic, false),
+      harvestDate: pickDefined(harvestDate, '') || null,
+      availableFrom: pickDefined(availableFrom, '') || null,
+      availableTo: pickDefined(availableTo, '') || null,
+      county: pickDefined(county),
+      townCity: pickDefined(townCity),
+      postcode: pickDefined(postcode),
+    };
+
+    if (!payload.title || payload.pricePerUnit === undefined || payload.quantityAvailable === undefined || !payload.county || !payload.townCity || !payload.postcode) {
       return sendError(
         res,
         'title, pricePerUnit, quantityAvailable, county, townCity and postcode are required',
@@ -81,22 +121,7 @@ const createMarketplaceListing = async (req, res) => {
 
     const listingId = await createGrowerListing(
       req.user.id,
-      {
-        categoryId,
-        title: String(title).trim(),
-        description: description ? String(description).trim() : '',
-        unit: String(unit).trim(),
-        pricePerUnit: Number(pricePerUnit),
-        quantityAvailable: Number(quantityAvailable),
-        minOrderQty: Number(minOrderQty) || 1,
-        isOrganic: isOrganic === true || isOrganic === 'true' || isOrganic === '1' || isOrganic === 1,
-        harvestDate,
-        availableFrom,
-        availableTo,
-        county: String(county).trim(),
-        townCity: String(townCity).trim(),
-        postcode: String(postcode).trim(),
-      },
+      payload,
       req.files || []
     );
 
@@ -122,19 +147,50 @@ const createMarketplaceListing = async (req, res) => {
 const updateMarketplaceListing = async (req, res) => {
   try {
     const {
+      categoryId,
       title,
       description = '',
       unit = 'kg',
       pricePerUnit,
       quantityAvailable,
       minOrderQty = 1,
+      isOrganic = false,
+      harvestDate,
+      availableFrom,
+      availableTo,
       county,
       townCity,
       postcode,
       listingStatus = 'active',
     } = req.body;
 
-    if (!title || !pricePerUnit || !quantityAvailable || !county || !townCity || !postcode) {
+    const existingListing = await getGrowerListingById(req.user.id, Number(req.params.listingId));
+
+    if (!existingListing) {
+      return sendError(res, 'Listing not found', 404);
+    }
+
+    const payload = {
+      categoryId: pickNumber(categoryId, existingListing.categoryId),
+      title: pickDefined(title, existingListing.title || ''),
+      description: pickDefined(description, existingListing.description || ''),
+      unit: pickDefined(unit, existingListing.unit || 'kg') || 'kg',
+      pricePerUnit: pickNumber(pricePerUnit, Number(existingListing.pricePerUnit)),
+      quantityAvailable: pickNumber(quantityAvailable, Number(existingListing.quantityAvailable)),
+      minOrderQty: pickNumber(minOrderQty, Number(existingListing.minOrderQty) || 1),
+      isOrganic: pickBoolean(isOrganic, Boolean(existingListing.isOrganic)),
+      harvestDate: pickDefined(harvestDate, existingListing.harvestDate || '') || null,
+      availableFrom: pickDefined(availableFrom, existingListing.availableFrom || '') || null,
+      availableTo: pickDefined(availableTo, existingListing.availableTo || '') || null,
+      county: pickDefined(county, existingListing.county || ''),
+      townCity: pickDefined(townCity, existingListing.townCity || ''),
+      postcode: pickDefined(postcode, existingListing.postcode || ''),
+      listingStatus: ['active', 'inactive', 'sold_out'].includes(String(listingStatus).trim())
+        ? String(listingStatus).trim()
+        : (existingListing.listingStatus || 'active'),
+    };
+
+    if (!payload.title || payload.pricePerUnit === undefined || payload.quantityAvailable === undefined || !payload.county || !payload.townCity || !payload.postcode) {
       return sendError(
         res,
         'title, pricePerUnit, quantityAvailable, county, townCity and postcode are required',
@@ -142,20 +198,12 @@ const updateMarketplaceListing = async (req, res) => {
       );
     }
 
-    const isUpdated = await updateGrowerListing(req.user.id, Number(req.params.listingId), {
-      title: String(title).trim(),
-      description: String(description).trim(),
-      unit: String(unit).trim(),
-      pricePerUnit: Number(pricePerUnit),
-      quantityAvailable: Number(quantityAvailable),
-      minOrderQty: Number(minOrderQty) || 1,
-      county: String(county).trim(),
-      townCity: String(townCity).trim(),
-      postcode: String(postcode).trim(),
-      listingStatus: ['active', 'inactive', 'sold_out'].includes(String(listingStatus).trim())
-        ? String(listingStatus).trim()
-        : 'active',
-    });
+    const isUpdated = await updateGrowerListing(
+      req.user.id,
+      Number(req.params.listingId),
+      payload,
+      req.files || []
+    );
 
     if (!isUpdated) {
       return sendError(res, 'Listing not found', 404);

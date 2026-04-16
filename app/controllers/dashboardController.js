@@ -1,4 +1,4 @@
-const { getGrowerSummary, getBuyerSummary, getGrowerInventory } = require('../models/dashboardModel');
+const { getGrowerSummary, getBuyerSummary, getGrowerInventory, getActiveCategories } = require('../models/dashboardModel');
 const { sendSuccess, sendError } = require('../../utils/response');
 
 const getErrorDetails = (error) => {
@@ -29,8 +29,11 @@ const buyerDashboard = async (req, res) => {
 
 const growerInventory = async (req, res) => {
   try {
-    const inventory = await getGrowerInventory(req.user.id);
-    return sendSuccess(res, { inventory }, 'Grower inventory fetched');
+    const [inventory, categories] = await Promise.all([
+      getGrowerInventory(req.user.id),
+      getActiveCategories(),
+    ]);
+    return sendSuccess(res, { inventory, categories }, 'Grower inventory fetched');
   } catch (error) {
     return sendError(res, 'Failed to fetch grower inventory', 500, getErrorDetails(error));
   }
